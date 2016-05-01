@@ -8,6 +8,10 @@ import shlex
 import subprocess
 from PyQt4 import QtGui, QtCore, uic
 
+APP_DIR = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(APP_DIR, 'submodules', 'track'))
+from desktop_usage_info import applicationinfo
+
 log = logging.getLogger('grepview')
 
 class grepview_ui(QtGui.QMainWindow):
@@ -19,6 +23,7 @@ class grepview_ui(QtGui.QMainWindow):
 
         self.lst_selection.selectionModel().selectionChanged.connect(
             self.on_lst_selection_selectionChanged)
+        self.lst_selection.setVisible(False)
 
         _previous = self.txt_command.keyPressEvent
 
@@ -27,6 +32,36 @@ class grepview_ui(QtGui.QMainWindow):
                 self, event, _previous))
 
         self.setWindowTitle("command result view")
+
+        self.txt_command.setPlainText(' '.join(sys.argv[1:]))
+
+        QtGui.QApplication.clipboard().dataChanged.connect(
+            self.on_clipboard_dataChanged)
+        QtGui.QApplication.clipboard().selectionChanged.connect(
+            self.on_clipboard_selectionChanged)
+
+    def on_clipboard_dataChanged(self):
+        print("on_clipboard_dataChanged")
+
+    def on_clipboard_selectionChanged(self):
+        print("on_clipboard_selectionChanged")
+        app_title = applicationinfo.get_active_window_information()['TITLE']
+        if ':' not in app_title:
+            return
+        app_cwd = os.path.expanduser(app_title[app_title.find(':') + 1:].strip())
+        log.info("got CWD: '%s'", app_cwd)
+
+        if not QtGui.QApplication.clipboard().mimeData().hasText():
+            return
+
+        selection = str(QtGui.QApplication.clipboard().text(
+            mode=QtGui.QClipboard.Selection))
+
+        filename = os.path.realpath(os.path.join(app_cwd, selection))
+        if not os.path.exists(filename):
+            return
+
+        self.display(filename)
 
     def encode(self, item):
         try:
@@ -38,7 +73,11 @@ class grepview_ui(QtGui.QMainWindow):
     def on_txt_command_keyPressEvent(self, event, previous):
         if event.key() == QtCore.Qt.Key_Return:
             _command = [os.path.expanduser(e)
-                        for e in shlex.split(self.txt_command.toPlainText())]
+                        for e in shlex.split(str(self.txt_command.toPlainText()))]
+            if _command == []:
+                self.lst_selection.setVisible(False)
+                return
+
             log.info("run cmd %s" % _command)
             proc = subprocess.Popen(
                 args=_command, stdout=subprocess.PIPE,
@@ -56,21 +95,24 @@ class grepview_ui(QtGui.QMainWindow):
             for e in _result_stdout:
                 if os.path.isfile(e):
                     self.lst_selection.addItem(e)
+
+            self.lst_selection.setVisible(self.lst_selection.count() > 0)
             return
+
         return previous(event)
 
     def on_lst_selection_selectionChanged(self):
         _items = self.lst_selection.selectedItems()
         if len(_items) == 1:
             _filename = _items[0].text()
-            myPixmap = QtGui.QPixmap(_filename)
-            myScaledPixmap = myPixmap.scaled(self.lbl_image.size(), QtCore.Qt.KeepAspectRatio)
-            self.lbl_image.setPixmap(myScaledPixmap)
+            self.display(_filename)
         else:
             print(len(_items))
 
-    def on_clicked_pb_quick_play(self):
-        log.debug("on_clicked_pb_quick_play")
+    def display(self, filename):
+        myPixmap = QtGui.QPixmap(filename)
+        myScaledPixmap = myPixmap.scaled(self.lbl_image.size(), QtCore.Qt.KeepAspectRatio)
+        self.lbl_image.setPixmap(myScaledPixmap)
 
 
 def main():
