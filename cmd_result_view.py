@@ -24,6 +24,7 @@ class grepview_ui(QtGui.QMainWindow):
         self.lst_selection.selectionModel().selectionChanged.connect(
             self.on_lst_selection_selectionChanged)
         self.lst_selection.setVisible(False)
+        self.set_cwd(os.getcwd())
 
         _previous = self.txt_command.keyPressEvent
 
@@ -33,7 +34,7 @@ class grepview_ui(QtGui.QMainWindow):
 
         self.setWindowTitle("command result view")
 
-        self.txt_command.setPlainText(' '.join(sys.argv[1:]))
+        self.txt_command.setText(' '.join(sys.argv[1:]))
 
         QtGui.QApplication.clipboard().dataChanged.connect(
             self.on_clipboard_dataChanged)
@@ -70,17 +71,29 @@ class grepview_ui(QtGui.QMainWindow):
             log.error('could not decode item "%s"', item)
             return item.decode(errors='ignore')
 
+    def set_cwd(self, path):
+        os.chdir(path)
+        self.lbl_cwd.setText(path)
+
     def on_txt_command_keyPressEvent(self, event, previous):
         if event.key() == QtCore.Qt.Key_Return:
             _command = [os.path.expanduser(e)
-                        for e in shlex.split(str(self.txt_command.toPlainText()))]
+                        for e in shlex.split(str(self.txt_command.text()))]
             if _command == []:
                 self.lst_selection.setVisible(False)
                 return
+            if _command[0] == 'cd':
+                if len(_command) == 1:
+                    self.set_cwd(os.path.expanduser('~'))
+                else:
+                    self.set_cwd(_command[1])
+                self.txt_command.setText('')
+                self.lst_selection.setVisible(False)
 
-            log.info("run cmd %s" % _command)
+            log.info("run cmd %s", _command)
             proc = subprocess.Popen(
-                args=_command, stdout=subprocess.PIPE,
+                args=_command,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
             _stdout, _stderr = proc.communicate()
             _result_stdout = [self.encode(e) for e in _stdout.split(b'\n')]
@@ -96,7 +109,7 @@ class grepview_ui(QtGui.QMainWindow):
                 if os.path.isfile(e):
                     self.lst_selection.addItem(e)
 
-            self.lst_selection.setVisible(self.lst_selection.count() > 0)
+            self.lst_selection.setVisible(self.lst_selection.count())
             return
 
         return previous(event)
