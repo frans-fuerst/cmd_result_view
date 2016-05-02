@@ -52,7 +52,7 @@ class grepview_ui(QtGui.QMainWindow):
         app_cwd = os.path.expanduser(app_title[app_title.find(':') + 1:].strip())
         log.info("got CWD: '%s'", app_cwd)
 
-        if not QtGui.QApplication.clipboard().mimeData().hasText():
+        if not QtGui.QApplication.clipboard().mimeData(mode=QtGui.QClipboard.Selection).hasText():
             return
 
         selection = str(QtGui.QApplication.clipboard().text(
