@@ -41,6 +41,19 @@ class grepview_ui(QtGui.QMainWindow):
         QtGui.QApplication.clipboard().selectionChanged.connect(
             self.on_clipboard_selectionChanged)
 
+        self._sys_icon = QtGui.QSystemTrayIcon()
+        self._sys_icon.setIcon(QtGui.QIcon.fromTheme("document-save"))
+        self._sys_icon.setVisible(True)
+        self._sys_icon.messageClicked.connect(self.on_sys_icon_messageClicked)
+        self._sys_icon.activated.connect(self.on_sys_icon_messageClicked)
+
+    def on_sys_icon_messageClicked(self):
+        print("on_sys_icon_messageClicked")
+        self.setWindowState(self.windowState() &
+                            ~QtCore.Qt.WindowMinimized |
+                            QtCore.Qt.WindowActive)
+        self.activateWindow()
+
     def on_clipboard_dataChanged(self):
         print("on_clipboard_dataChanged")
 
@@ -58,11 +71,18 @@ class grepview_ui(QtGui.QMainWindow):
         selection = str(QtGui.QApplication.clipboard().text(
             mode=QtGui.QClipboard.Selection))
 
-        filename = os.path.realpath(os.path.join(app_cwd, selection))
-        if not os.path.exists(filename):
+        _filenames = []
+        for line in [e.strip() for e in selection.split('\n')]:
+            filename = os.path.realpath(os.path.join(app_cwd, line))
+            if os.path.isfile(filename):
+                _filenames.append(filename)
+
+        if len(_filenames) == 0:
             return
 
-        self.display(filename)
+        # self._sys_icon.showMessage('CRV', '\n'.join(_filenames))
+
+        self.display(_filenames[0])
 
     def encode(self, item):
         try:
