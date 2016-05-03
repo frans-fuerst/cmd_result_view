@@ -58,11 +58,19 @@ class grepview_ui(QtGui.QMainWindow):
         print("on_clipboard_dataChanged")
 
     def on_clipboard_selectionChanged(self):
-        print("on_clipboard_selectionChanged")
-        app_title = applicationinfo.get_active_window_information()['TITLE']
-        if ':' not in app_title:
+        log.debug("on_clipboard_selectionChanged")
+        try:
+            app_title = applicationinfo.get_active_window_information()['TITLE']
+        except:
             return
+        if ':' not in app_title:
+            log.warn("cannot extract app CWD from '%s'", app_title)
+            return
+
         app_cwd = os.path.expanduser(app_title[app_title.find(':') + 1:].strip())
+        if not os.path.isdir(app_cwd):
+            return
+
         log.info("got CWD: '%s'", app_cwd)
 
         if not QtGui.QApplication.clipboard().mimeData(mode=QtGui.QClipboard.Selection).hasText():
@@ -84,7 +92,7 @@ class grepview_ui(QtGui.QMainWindow):
 
         self.display(_filenames[0])
 
-    def encode(self, item):
+    def decode(self, item):
         try:
             return item.decode()
         except UnicodeDecodeError:
@@ -101,7 +109,9 @@ class grepview_ui(QtGui.QMainWindow):
                         for e in shlex.split(str(self.txt_command.text()))]
             if _command == []:
                 self.lst_selection.setVisible(False)
+                self.display(None)
                 return
+
             if _command[0] == 'cd':
                 if len(_command) == 1:
                     self.set_cwd(os.path.expanduser('~'))
@@ -116,8 +126,8 @@ class grepview_ui(QtGui.QMainWindow):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
             _stdout, _stderr = proc.communicate()
-            _result_stdout = [self.encode(e) for e in _stdout.split(b'\n')]
-            _result_stderr = [self.encode(e) for e in _stderr.split(b'\n')]
+            _result_stdout = [self.decode(e) for e in _stdout.split(b'\n')]
+            _result_stderr = [self.decode(e) for e in _stderr.split(b'\n')]
 
             for e in _result_stderr:
                 if e.strip() == '':
@@ -143,6 +153,10 @@ class grepview_ui(QtGui.QMainWindow):
             print(len(_items))
 
     def display(self, filename):
+        if filename is None:
+            self.lbl_image.setPixmap(QtGui.QPixmap())
+            return
+
         myPixmap = QtGui.QPixmap(filename)
         myScaledPixmap = myPixmap.scaled(self.lbl_image.size(), QtCore.Qt.KeepAspectRatio)
         self.lbl_image.setPixmap(myScaledPixmap)
