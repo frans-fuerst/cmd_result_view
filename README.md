@@ -26,6 +26,7 @@ Todo
 * support more file types
   - txt
   - pdf
+* auto rotate images
 
 
 Requirements
