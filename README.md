@@ -10,6 +10,7 @@ assembling a new command based on `display`, `cat`, `xgd-open`, etc.
 you just select the file name and it's content will be immediately
 displayed.
 
+![CRV screencast](screencast.gif)
 
 Get & Install
 -------------
